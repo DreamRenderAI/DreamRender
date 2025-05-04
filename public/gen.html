@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DreamRenderAI - Advanced Image Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+        .gradient-text {
+            background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+        }
+        .image-placeholder {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 2px dashed #334155;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .image-placeholder::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .image-placeholder:hover::before {
+            opacity: 1;
+        }
+        .prompt-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        .prompt-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .prompt-card:hover::before {
+            opacity: 1;
+        }
+        .prompt-card.active {
+            background-color: #1e293b;
+            border-color: #3b82f6;
+        }
+        .style-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            padding: 20px;
+            font-size: 1.1rem;
+            min-height: 120px;
+            background-color: rgba(30, 41, 59, 0.8);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid rgba(71, 85, 105, 0.5);
+        }
+        .style-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .style-card:hover::before {
+            opacity: 1;
+        }
+        .style-card.active {
+            background-color: rgba(30, 41, 59, 0.9);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+        }
+        .glow {
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+        }
+        .glow:hover {
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.7);
+        }
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .bg-pattern {
+            background-image: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 20%);
+        }
+        .tooltip {
+            position: relative;
+        }
+        .tooltip-text {
+            visibility: hidden;
+            width: 120px;
+            background-color: #1e293b;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            border: 1px solid #334155;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        .slide-in {
+            animation: slideIn 0.5s forwards;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .style-example {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.3;
+            transition: opacity 0.3s ease;
+        }
+        .style-card:hover .style-example {
+            opacity: 0.5;
+        }
+        .style-card.active .style-example {
+            opacity: 0.7;
+        }
+        .style-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+        .style-icon {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            color: #818cf8;
+        }
+        .nav-link {
+            position: relative;
+            padding: 8px 0;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: 0;
+            left: 0;
+            background-color: #818cf8;
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover::after {
+            width: 100%;
+        }
+        .glass-effect {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .input-field {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(71, 85, 105, 0.5);
+            transition: all 0.3s ease;
+        }
+        .input-field:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+        }
+        .styles-modal {
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .styles-modal::-webkit-scrollbar {
+            width: 8px;
+        }
+        .styles-modal::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 10px;
+        }
+        .styles-modal::-webkit-scrollbar-thumb {
+            background: #6366f1;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-pattern">
+    <!-- Animated Background Elements -->
+    <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10">
+        <div class="absolute top-20 left-10 w-16 h-16 rounded-full bg-indigo-500/20 blur-xl floating"></div>
+        <div class="absolute top-1/3 right-20 w-24 h-24 rounded-full bg-purple-500/20 blur-xl floating" style="animation-delay: 2s;"></div>
+        <div class="absolute bottom-20 left-1/4 w-20 h-20 rounded-full bg-pink-500/20 blur-xl floating" style="animation-delay: 4s;"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="px-6 py-4 flex items-center justify-between max-w-7xl mx-auto relative z-10 glass-effect rounded-xl shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-full gradient-bg flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                <i class="fas fa-robot"></i>
+            </div>
+            <span class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
+                DreamRender<span class="gradient-text">AI</span>
+            </span>
+        </div>
+        <div class="flex items-center space-x-6">
+            <a href="#" class="nav-link text-gray-300 hover:text-white transition">
+                <i class="fas fa-images mr-2 text-indigo-400"></i> Gallery
+            </a>
+            <a href="#" class="nav-link text-gray-300 hover:text-white transition">
+                <i class="fas fa-lightbulb mr-2 text-indigo-400"></i> Inspiration
+            </a>
+            <a href="#" class="nav-link text-gray-300 hover:text-white transition">
+                <i class="fas fa-crown mr-2 text-indigo-400"></i> Premium
+            </a>
+            <a href="#" class="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg hover:opacity-90 transition flex items-center shadow-lg glow">
+                <i class="fas fa-user mr-2"></i> <span>My Account</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-6 py-8 relative z-10">
+        <!-- Generation Section -->
+        <section>
+            <div class="flex flex-col lg:flex-row gap-8">
+                <!-- Prompt Input Section -->
+                <div class="lg:w-1/2">
+                    <div class="mb-8">
+                        <h1 class="text-4xl md:text-5xl font-bold mb-4">
+                            Create with <span class="gradient-text">DreamRenderAI</span>
+                        </h1>
+                        <p class="text-gray-400 max-w-lg">
+                            Transform your imagination into stunning visuals with our advanced AI image generator.
+                            Select a style, enter your prompt, and watch the magic happen.
+                        </p>
+                    </div>
+
+                    <div class="mb-8">
+                        <div class="flex items-center justify-between mb-2">
+                            <label for="prompt" class="block text-lg font-medium">Describe your vision</label>
+                            <span class="text-xs text-gray-500">Max 500 characters</span>
+                        </div>
+                        <div class="relative">
+                            <textarea
+                                id="prompt"
+                                rows="5"
+                                maxlength="500"
+                                class="w-full input-field rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-white placeholder-gray-500 backdrop-blur-sm transition-all duration-300"
+                                placeholder="A majestic lion with a golden mane standing on a cliff at sunset, digital art, highly detailed, cinematic lighting"
+                            ></textarea>
+                            <div class="absolute bottom-3 right-3 flex items-center space-x-2 bg-gray-900/50 rounded-lg px-2 py-1">
+                                <span id="char-count" class="text-xs text-gray-400">0/500</span>
+                                <div class="h-4 w-px bg-gray-600"></div>
+                                <button class="p-1 text-gray-400 hover:text-indigo-400 tooltip">
+                                    <i class="fas fa-microphone"></i>
+                                    <span class="tooltip-text">Voice input</span>
+                                </button>
+                                <button id="random-prompt" class="p-1 text-gray-400 hover:text-indigo-400 tooltip">
+                                    <i class="fas fa-random"></i>
+                                    <span class="tooltip-text">Random prompt</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-8">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-lg font-medium">Art Style</label>
+                            <span id="selected-style" class="text-xs text-indigo-400 hidden">
+                                <i class="fas fa-check-circle mr-1"></i> Style selected
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <div class="style-card" data-style="digital art">
+                                <img src="https://i.ibb.co/GQY6wRg3/dreamrender-image-2-3.jpg" class="style-example" alt="Digital Art Example">
+                                <div class="style-content">
+                                    <div class="style-icon"><i class="fas fa-paint-brush"></i></div>
+                                    <div class="font-medium">Digital Art</div>
+                                </div>
+                            </div>
+                            <div class="style-card" data-style="photorealistic">
+                                <img src="https://i.ibb.co/8gVBmmLz/dreamrender-image-3-2.jpg" class="style-example" alt="Photorealistic Example">
+                                <div class="style-content">
+                                    <div class="style-icon"><i class="fas fa-camera"></i></div>
+                                    <div class="font-medium">Photorealistic</div>
+                                </div>
+                            </div>
+                            <div class="style-card" data-style="watercolor painting">
+                                <img src="https://i.ibb.co/G3xxYzjc/dreamrender-image-2-4.jpg" class="style-example" alt="Watercolor Example">
+                                <div class="style-content">
+                                    <div class="style-icon"><i class="fas fa-palette"></i></div>
+                                    <div class="font-medium">Watercolor</div>
+                                </div>
+                            </div>
+                            <div class="style-card" data-style="vector art">
+                                <img src="https://i.ibb.co/HT0DSTw2/dreamrender-image-4-7.jpg" class="style-example" alt="Vector Art Example">
+                                <div class="style-content">
+                                    <div class="style-icon"><i class="fas fa-vector-square"></i></div>
+                                    <div class="font-medium">Vector Art</div>
+                                </div>
+                            </div>
+                            <div class="style-card" data-style="cyberpunk style">
+                                <img src="https://i.ibb.co/v4mz6XQX/dreamrender-image-3-3.jpg" class="style-example" alt="Cyberpunk Example">
+                                <div class="style-content">
+                                    <div class="style-icon"><i class="fas fa-moon"></i></div>
+                                    <div class="font-medium">Cyberpunk</div>
+                                </div>
+                            </div>
+                            <div class="style-card" data-style="futuristic style">
+                                <img src="https://i.ibb.co/b5mRxdB8/d dreamrender-image-4-8.jpg" class="style-example" alt="Futuristic Example">
+                                <div class="style-content">
+                                    <div class="style-icon"><i class="fas fa-rocket"></i></div>
+                                    <div class="font-medium">Futuristic</div>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="show-all-styles" class="mt-4 w-full py-2 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-gray-700/50 transition flex items-center justify-center">
+                            <i class="fas fa-plus-circle mr-2 text-indigo-400"></i> See All Art Styles
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Image Results Section -->
+                <div class="lg:w-1/2">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div id="image-1" class="image-placeholder aspect-square rounded-xl card-hover group">
+                            <div class="text-center p-4">
+                                <i class="fas fa-image text-4xl text-gray-600 mb-2 group-hover:text-indigo-500 transition"></i>
+                                <p class="text-gray-500 group-hover:text-indigo-400 transition">Image will appear here</p>
+                            </div>
+                            <div class="progress-bar"></div>
+                        </div>
+                        <div id="image-2" class="image-placeholder aspect-square rounded-xl card-hover group">
+                            <div class="text-center p-4">
+                                <i class="fas fa-image text-4xl text-gray-600 mb-2 group-hover:text-indigo-500 transition"></i>
+                                <p class="text-gray-500 group-hover:text-indigo-400 transition">Image will appear here</p>
+                            </div>
+                            <div class="progress-bar"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div id="image-3" class="image-placeholder aspect-square rounded-xl card-hover group">
+                            <div class="text-center p-4">
+                                <i class="fas fa-image text-4xl text-gray-600 mb-2 group-hover:text-indigo-500 transition"></i>
+                                <p class="text-gray-500 group-hover:text-indigo-400 transition">Image will appear here</p>
+                            </div>
+                            <div class="progress-bar"></div>
+                        </div>
+                        <div id="image-4" class="image-placeholder aspect-square rounded-xl card-hover group">
+                            <div class="text-center p-4">
+                                <i class="fas fa-image text-4xl text-gray-600 mb-2 group-hover:text-indigo-500 transition"></i>
+                                <p class="text-gray-500 group-hover:text-indigo-400 transition">Image will appear here</p>
+                            </div>
+                            <div class="progress-bar"></div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="text-gray-400 flex items-center">
+                                <i class="fas fa-info-circle mr-2 text-indigo-400"></i>
+                                <span>Each generation uses <span class="font-medium">1 credit</span></span>
+                            </div>
+                            <div class="flex items-center text-sm">
+                                <span class="text-gray-400 mr-2">Credits:</span>
+                                <span class="font-medium text-indigo-400">5 remaining</span>
+                            </div>
+                        </div>
+
+                        <button id="generate-btn" class="w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl text-lg font-semibold hover:opacity-90 transition flex items-center justify-center glow hover:shadow-xl">
+                            <i class="fas fa-magic mr-2"></i> Generate Images (4 variations)
+                        </button>
+
+                        <div class="flex justify-between mt-4">
+                            <div class="flex space-x-2">
+                                <button id="regenerate-btn" class="px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-gray-700/50 transition flex items-center disabled:opacity-50" disabled>
+                                    <i class="fas fa-redo mr-2"></i> Regenerate
+                                </button>
+                                <button id="upscale-btn" class="px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-gray-700/50 transition flex items-center disabled:opacity-50" disabled>
+                                    <i class="fas fa-expand mr-2"></i> Upscale
+                                </button>
+                            </div>
+                            <button id="download-all-btn" class="px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-700 transition flex items-center disabled:opacity-50" disabled>
+                                <i class="fas fa-download mr-2"></i> Download All
+                            </button>
+                        </div>
+
+                        <!-- Moved Prompt Suggestions Here -->
+                        <div class="mt-8">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-lg font-medium">Prompt Suggestions</label>
+                                <button id="refresh-prompts" class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center">
+                                    <i class="fas fa-sync-alt mr-1"></i> Refresh
+                                </button>
+                            </div>
+                            <div id="prompt-suggestions" class="space-y-3">
+                                <div class="prompt-card bg-gray-800/50 border border-gray-700 rounded-xl p-4 cursor-pointer card-hover">
+                                    "A futuristic cityscape at night with neon lights reflecting on wet streets, cyberpunk style"
+                                </div>
+                                <div class="prompt-card bg-gray-800/50 border border-gray-700 rounded-xl p-4 cursor-pointer card-hover">
+                                    "A mystical forest with glowing mushrooms and fairies, fantasy art, highly detailed"
+                                </div>
+                                <div class="prompt-card bg-gray-800/50 border border-gray-700 rounded-xl p-4 cursor-pointer card-hover">
+                                    "Portrait of an elegant woman with intricate henna patterns, cinematic lighting"
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- All Styles Modal -->
+    <div id="all-styles-modal" class="fixed inset-0 bg-black/50 z-30 flex items-center justify-center hidden">
+        <div class="bg-gray-800 rounded-xl p-6 max-w-4xl w-full mx-4 slide-in styles-modal">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">All Art Styles</h3>
+                <button id="close-styles" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i> 
+                </button>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                <!-- Original Styles -->
+                <div class="style-card" data-style="digital art">
+                    <img src="https://i.ibb.co/GQY6wRg3/dreamrender-image-2-3.jpg" class="style-example" alt="Digital Art Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-paint-brush"></i></div>
+                        <div class="font-medium">Digital Art</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="photorealistic">
+                    <img src="https://i.ibb.co/8gVBmmLz/dreamrender-image-3-2.jpg" class="style-example" alt="Photorealistic Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-camera"></i></div>
+                        <div class="font-medium">Photorealistic</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="watercolor painting">
+                    <img src="https://i.ibb.co/G3xxYzjc/dreamrender-image-2-4.jpg" class="style-example" alt="Watercolor Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-palette"></i></div>
+                        <div class="font-medium">Watercolor</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="vector art">
+                    <img src="https://i.ibb.co/HT0DSTw2/dreamrender-image-4-7.jpg" class="style-example" alt="Vector Art Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-vector-square"></i></div>
+                        <div class="font-medium">Vector Art</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="cyberpunk style">
+                    <img src="https://i.ibb.co/v4mz6XQX/dreamrender-image-3-3.jpg" class="style-example" alt="Cyberpunk Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-moon"></i></div>
+                        <div class="font-medium">Cyberpunk</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="futuristic style">
+                    <img src="https://i.ibb.co/b5mRxdB8/dreamrender-image-4-8.jpg" class="style-example" alt="Futuristic Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-rocket"></i></div>
+                        <div class="font-medium">Futuristic</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="sketch drawing">
+                    <img src="https://i.ibb.co/xS2knNmy/dreamrender-image-2-5.jpg" class="style-example" alt="Sketch Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-pencil-ruler"></i></div>
+                        <div class="font-medium">Sketch</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="anime style">
+                    <img src="https://i.ibb.co/tpKyr7FD/dreamrender-image-2-7.jpg" class="style-example" alt="Anime Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-user-ninja"></i></div>
+                        <div class="font-medium">Anime</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="graffiti art">
+                    <img src="https://i.ibb.co/39sdbYrg/dreamrender-image-2-8.jpg" class="style-example" alt="Graffiti Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-spray-can"></i></div>
+                        <div class="font-medium">Graffiti</div>
+                    </div>
+                </div>
+                
+                <!-- Additional Styles -->
+                <div class="style-card" data-style="cartoon style">
+                    <img src="https://i.ibb.co/nM7KLV1T/dreamrender-image-3-5.jpg" class="style-example" alt="Cartoon Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-smile"></i></div>
+                        <div class="font-medium">Cartoon</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="retro style">
+                    <img src="https://i.ibb.co/5hNHpnQr/dreamrender-image-4-9.jpg" class="style-example" alt="Retro Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-rainbow"></i></div>
+                        <div class="font-medium">Retro</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="3d render">
+                    <img src="https://i.ibb.co/cKvDzP4q/dreamrender-image-4-10.jpg" class="style-example" alt="3D Render Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-cube"></i></div>
+                        <div class="font-medium">3D Render</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="neon style">
+                    <img src="https://i.ibb.co/1tgjQkn3/dreamrender-image-4-11.jpg" class="style-example" alt="Neon Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-lightbulb"></i></div>
+                        <div class="font-medium">Neon</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="children's book">
+                    <img src="https://i.ibb.co/hR9nfKJz/dreamrender-image-3-6.jpg" class="style-example" alt="Children's Book Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-book-open"></i></div>
+                        <div class="font-medium">Children's Book</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="horror style">
+                    <img src="https://i.ibb.co/KTJ2402/dreamrender-image-2-9.jpg" class="style-example" alt="Horror Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-ghost"></i></div>
+                        <div class="font-medium">Horror</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="mobile game style">
+                    <img src="https://i.ibb.co/gH9WGQL/dreamrender-image-4-12.jpg" class="style-example" alt="Mobile Game Style Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-gamepad"></i></div>
+                        <div class="font-medium">Mobile Game</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="doodle style">
+                    <img src="https://i.ibb.co/rR7qyPKm/dreamrender-image-3-7.jpg" class="style-example" alt="Doodle Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-pen-fancy"></i></div>
+                        <div class="font-medium">Doodle</div>
+                    </div>
+                </div>
+                <div class="style-card" data-style="nature style">
+                    <img src="https://i.ibb.co/Xk8fJmsG/dreamrender-image-1-3.jpg" class="style-example" alt="Nature Example">
+                    <div class="style-content">
+                        <div class="style-icon"><i class="fas fa-leaf"></i></div>
+                        <div class="font-medium">Nature</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Action Button -->
+    <div class="fixed bottom-6 right-6 z-20">
+        <button id="feedback-btn" class="w-12 h-12 rounded-full gradient-bg shadow-xl glow flex items-center justify-center text-white hover:scale-110 transition-transform">
+            <i class="fas fa-comment-dots"></i>
+        </button>
+    </div>
+
+    <!-- Feedback Modal (hidden by default) -->
+    <div id="feedback-modal" class="fixed inset-0 bg-black/50 z-30 flex items-center justify-center hidden">
+        <div class="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4 slide-in">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Send Feedback</h3>
+                <button id="close-feedback" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i> 
+                </button>
+            </div>
+            <textarea class="w-full bg-gray-700 rounded-lg p-4 mb-4 text-white" placeholder="Your feedback helps us improve..."></textarea>
+            <button class="w-full py-2 bg-indigo-600 rounded-lg hover:bg-indigo-700">Submit</button>
+        </div>
+    </div>
+
+    <!-- Audio element for notification sound -->
+    <audio id="notification-sound" src="https://cdn.glitch.global/c686a921-61f6-4237-b210-cdc4f920200a/new-notification-7-210334.mp3?v=1746279107686" preload="auto"></audio>
+
+    <script>
+        // DOM Elements
+        const promptTextarea = document.getElementById('prompt');
+        const charCount = document.getElementById('char-count');
+        const randomPromptBtn = document.getElementById('random-prompt');
+        const refreshPromptsBtn = document.getElementById('refresh-prompts');
+        const promptSuggestions = document.getElementById('prompt-suggestions');
+        const generateBtn = document.getElementById('generate-btn');
+        const regenerateBtn = document.getElementById('regenerate-btn');
+        const upscaleBtn = document.getElementById('upscale-btn');
+        const downloadAllBtn = document.getElementById('download-all-btn');
+        const feedbackBtn = document.getElementById('feedback-btn');
+        const feedbackModal = document.getElementById('feedback-modal');
+        const closeFeedback = document.getElementById('close-feedback');
+        const selectedStyleIndicator = document.getElementById('selected-style');
+        const notificationSound = document.getElementById('notification-sound');
+        const showAllStylesBtn = document.getElementById('show-all-styles');
+        const allStylesModal = document.getElementById('all-styles-modal');
+        const closeStylesBtn = document.getElementById('close-styles');
+
+        // Image placeholders
+        const imagePlaceholders = {
+            1: document.getElementById('image-1'),
+            2: document.getElementById('image-2'),
+            3: document.getElementById('image-3'),
+            4: document.getElementById('image-4')
+        };
+
+        // State
+        let selectedStyle = null;
+        let generatedImages = [];
+        let isGenerating = false;
+
+        const samplePrompts = [
+            "A futuristic cityscape at night with neon lights reflecting on wet streets, cyberpunk style",
+            "A mystical forest with glowing mushrooms and fairies, fantasy art, highly detailed",
+            "Portrait of an elegant woman with intricate henna patterns, cinematic lighting",
+            "A steampunk airship flying through clouds at sunset, intricate details",
+            "An astronaut exploring an alien jungle with bioluminescent plants, sci-fi",
+            "A dragon perched on a medieval castle tower, fantasy art, dramatic lighting",
+            "A cybernetic samurai in a neon-lit alley, rain effects, cinematic",
+            "A cozy cabin in a snowy forest with smoke coming from the chimney, winter scene",
+            "Underwater city with coral buildings and mermaids, fantasy art",
+            "A futuristic robot drinking coffee in a cyberpunk diner, detailed",
+            "A retro-futuristic city with flying cars and glass domes, 1980s vision of the future",
+            "A magical library floating in the sky, glowing books and candles, fantasy style",
+            "A lone wanderer walking across a vast desert with ancient ruins, epic scale",
+            "A glowing portal in a stone circle deep in the woods, misty and mysterious",
+            "Alien marketplace on a distant planet, crowded with colorful lifeforms and exotic tech",
+            "A pixel-art style village at sunset, nostalgic and charming",
+            "Ancient ruins overtaken by jungle vines and glowing crystals, adventure setting",
+            "A high-tech hacker's workstation full of monitors, code, neon glow",
+            "A serene Japanese tea garden with cherry blossoms falling, watercolor style",
+            "Time-traveling train arriving at a surreal station, mix of vintage and futuristic"
+        ];
+
+        // Initialize
+        function init() {
+            updateCharCount();
+            loadPromptSuggestions();
+        }
+
+        // Character count for prompt textarea
+        function updateCharCount() {
+            const length = promptTextarea.value.length;
+            charCount.textContent = `${length}/500`;
+
+            if (length > 450) {
+                charCount.classList.add('text-red-400');
+                charCount.classList.remove('text-gray-400');
+            } else {
+                charCount.classList.remove('text-red-400');
+                charCount.classList.add('text-gray-400');
+            }
+        }
+
+        // Load prompt suggestions
+        function loadPromptSuggestions() {
+            // Shuffle array and pick first 3
+            const shuffled = [...samplePrompts].sort(() => 0.5 - Math.random());
+            const selectedPrompts = shuffled.slice(0, 3);
+
+            promptSuggestions.innerHTML = selectedPrompts.map(prompt => `
+                <div class="prompt-card bg-gray-800/50 border border-gray-700 rounded-xl p-4 cursor-pointer card-hover">
+                    "${prompt}"
+                </div>
+            `).join('');
+
+            // Add event listeners to new prompt cards
+            document.querySelectorAll('.prompt-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    // Remove active class from all prompt cards
+                    document.querySelectorAll('.prompt-card').forEach(c => {
+                        c.classList.remove('active');
+                    });
+
+                    // Add active class to clicked card
+                    this.classList.add('active');
+
+                    // Copy to textarea (remove quotes)
+                    promptTextarea.value = this.textContent.trim().replace(/^"|"$/g, '');
+                    updateCharCount();
+                });
+            });
+        }
+
+        // Style selection handler
+        function setupStyleCards() {
+            document.querySelectorAll('.style-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const style = this.getAttribute('data-style');
+
+                    // If clicking the already selected style, deselect it
+                    if (selectedStyle === style) {
+                        this.classList.remove('active');
+                        selectedStyle = null;
+                        selectedStyleIndicator.classList.add('hidden');
+                    } else {
+                        // Remove active class from all style cards
+                        document.querySelectorAll('.style-card').forEach(c => {
+                            c.classList.remove('active');
+                        });
+
+                        // Add active class to clicked card
+                        this.classList.add('active');
+
+                        // Store the selected style
+                        selectedStyle = style;
+                        selectedStyleIndicator.classList.remove('hidden');
+                    }
+
+                    // Close the modal if open
+                    allStylesModal.classList.add('hidden');
+                });
+            });
+        }
+
+        // Random prompt button
+        randomPromptBtn.addEventListener('click', function() {
+            const randomPrompt = samplePrompts[Math.floor(Math.random() * samplePrompts.length)];
+            promptTextarea.value = randomPrompt;
+            updateCharCount();
+        });
+
+        // Refresh prompts button
+        refreshPromptsBtn.addEventListener('click', function() {
+            this.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Refreshing';
+            setTimeout(() => {
+                loadPromptSuggestions();
+                this.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> Refresh';
+            }, 500);
+        });
+
+        // Show loading state for image generation
+        function showLoadingState() {
+            // Clear previous images
+            Object.values(imagePlaceholders).forEach(placeholder => {
+                placeholder.innerHTML = `
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <div class="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p class="text-indigo-400">Generating...</p>
+                    </div>
+                    <div class="progress-bar"></div>
+                `;
+            });
+
+            // Animate progress bars
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress >= 100) {
+                    clearInterval(interval);
+                }
+                document.querySelectorAll('.progress-bar').forEach(bar => {
+                    bar.style.width = `${Math.min(progress, 90)}%`;
+                });
+            }, 300);
+        }
+
+        // Generate button click handler
+        generateBtn.addEventListener('click', async function() {
+            if (isGenerating) return;
+
+            let prompt = promptTextarea.value.trim();
+
+            if (!prompt) {
+                showNotification('Please enter a prompt first!', 'red');
+                return;
+            }
+
+            // If a style is selected, modify the prompt
+            if (selectedStyle) {
+                // Remove any existing style mentions from the prompt
+                const stylePattern = new RegExp(`\\b(${[
+                    'digital art', 'photorealistic', 'watercolor', 
+                    'vector art', 'cyberpunk', 'futuristic',
+                    'sketch', 'anime style', 'graffiti art',
+                    'cartoon style', 'retro style', '3d render',
+                    'neon style', 'children\'s book', 'horror style',
+                    'mobile game style', 'doodle style', 'nature style'
+                ].join('|')})\\b`, 'gi');
+
+                prompt = prompt.replace(stylePattern, '').trim();
+
+                // Add the selected style to the prompt
+                prompt += `. Make it in a ${selectedStyle} style.`;
+            }
+
+            // Show loading state
+            isGenerating = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Generating...';
+            this.classList.add('opacity-75');
+            this.disabled = true;
+            showLoadingState();
+
+            try {
+                // Call the API to generate images
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API request failed with status ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (!data.images || data.images.length === 0) {
+                    throw new Error('No images returned from API');
+                }
+
+                // Store generated images
+                generatedImages = data.images.map((src, i) => ({
+                    id: i + 1,
+                    src: src,
+                    prompt: prompt
+                }));
+
+                // Display images
+                generatedImages.forEach(img => {
+                    if (imagePlaceholders[img.id]) {
+                        imagePlaceholders[img.id].innerHTML = `
+                            <img src="${img.src}" class="w-full h-full object-cover" alt="Generated image">
+                            <div class="absolute bottom-0 left-0 right-0 bg-black/70 p-2 text-xs flex justify-between items-center">
+                                <span class="truncate">${img.prompt}</span>
+                                <button class="download-single ml-2 p-1 text-white hover:text-indigo-300" data-id="${img.id}">
+                                    <i class="fas fa-download text-xs"></i>
+                                </button>
+                            </div>
+                        `;
+                    }
+                });
+
+                // Enable action buttons
+                regenerateBtn.disabled = false;
+                upscaleBtn.disabled = false;
+                downloadAllBtn.disabled = false;
+
+                // Add event listeners to single download buttons
+                document.querySelectorAll('.download-single').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const id = parseInt(this.getAttribute('data-id'));
+                        downloadImage(id);
+                    });
+                });
+
+                // Play notification sound
+                notificationSound.play();
+                showNotification('4 images generated successfully!', 'green');
+
+            } catch (err) {
+                console.error('Generation error:', err);
+
+                // Show error state in placeholders
+                Object.values(imagePlaceholders).forEach(placeholder => {
+                    placeholder.innerHTML = `
+                        <div class="absolute inset-0 flex flex-col items-center justify-center p-4">
+                            <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-2"></i>
+                            <p class="text-red-400 text-center">Failed to generate image</p>
+                            <p class="text-gray-500 text-xs mt-2 text-center">${err.message}</p>
+                        </div>
+                    `;
+                });
+
+                showNotification('Failed to generate images. Please try again.', 'red');
+            } finally {
+                isGenerating = false;
+                this.innerHTML = '<i class="fas fa-magic mr-2"></i> Generate Images (4 variations)';
+                this.classList.remove('opacity-75');
+                this.disabled = false;
+            }
+        });
+
+        // Regenerate button
+        regenerateBtn.addEventListener('click', function() {
+            generateBtn.click();
+        });
+
+        // Upscale button
+        upscaleBtn.addEventListener('click', function() {
+            showNotification('Upscale feature coming soon!', 'blue');
+        });
+
+        // Download all images as ZIP
+        downloadAllBtn.addEventListener('click', async function() {
+            if (generatedImages.length === 0) {
+                showNotification('No images to download', 'red');
+                return;
+            }
+
+            this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Preparing download...';
+            this.disabled = true;
+
+            try {
+                const zip = new JSZip();
+                const imgFolder = zip.folder("dreamrender_images");
+
+                // Add each image to the zip
+                for (let i = 0; i < generatedImages.length; i++) {
+                    const img = generatedImages[i];
+                    const response = await fetch(img.src);
+                    const blob = await response.blob();
+                    imgFolder.file(`image_${i+1}.jpg`, blob);
+                }
+
+                // Generate the zip file
+                const content = await zip.generateAsync({ type: "blob" });
+
+                // Download the zip
+                saveAs(content, "dreamrender_images.zip");
+
+                showNotification('Download started!', 'green');
+
+            } catch (err) {
+                console.error('Download error:', err);
+                showNotification('Failed to create download', 'red');
+            } finally {
+                this.innerHTML = '<i class="fas fa-download mr-2"></i> Download All';
+                this.disabled = false;
+            }
+        });
+
+        // Download single image
+        function downloadImage(id) {
+            const img = generatedImages.find(img => img.id === id);
+            if (!img) return;
+
+            const link = document.createElement('a');
+            link.href = img.src;
+            link.download = `dreamrender_image_${id}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showNotification(`Image ${id} downloaded!`, 'green');
+        }
+
+        // Show notification
+        function showNotification(message, color) {
+            const colors = {
+                green: 'bg-green-500',
+                red: 'bg-red-500',
+                blue: 'bg-blue-500'
+            };
+
+            const notification = document.createElement('div');
+            notification.className = `fixed bottom-4 right-4 ${colors[color] || 'bg-indigo-500'} text-white px-4 py-2 rounded-lg shadow-lg flex items-center fade-in`;
+            notification.innerHTML = `<i class="fas fa-${color === 'green' ? 'check-circle' : color === 'red' ? 'exclamation-circle' : 'info-circle'} mr-2"></i><span>${message}</span>`;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.classList.remove('fade-in');
+                notification.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Feedback modal
+        feedbackBtn.addEventListener('click', function() {
+            feedbackModal.classList.remove('hidden');
+        });
+
+        closeFeedback.addEventListener('click', function() {
+            feedbackModal.classList.add('hidden');
+        });
+
+        // Close modal when clicking outside
+        feedbackModal.addEventListener('click', function(e) {
+            if (e.target === feedbackModal) {A
+                feedbackModal.classList.add('hidden');
+            }
+        });
+
+        // All styles modal
+        showAllStylesBtn.addEventListener('click', function() {
+            allStylesModal.classList.remove('hidden');
+        });
+
+        closeStylesBtn.addEventListener('click', function() {
+            allStylesModal.classList.add('hidden');
+        });
+
+        // Close modal when clicking outside
+        allStylesModal.addEventListener('click', function(e) {
+            if (e.target === allStylesModal) {
+                allStylesModal.classList.add('hidden');
+            }
+        });
+
+        // Event listeners
+        promptTextarea.addEventListener('input', updateCharCount);
+
+        // Initialize the app
+        init();
+        setupStyleCards();
+    </script>
+</body>
+</html>
